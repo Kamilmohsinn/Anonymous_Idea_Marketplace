@@ -1,10 +1,9 @@
 <?php
 function getDbConnection() {
-    $host     = getenv('MYSQLHOST')     ?: 'localhost';
-    $port     = getenv('MYSQLPORT')     ?: '3306';
-    $dbname   = getenv('MYSQLDATABASE') ?: 'anonymous_idea_marketplace';
-    $username = getenv('MYSQLUSER')     ?: 'root';
-    $password = getenv('MYSQLPASSWORD') ?: '';
+    $host = 'localhost';
+    $dbname = 'anonymous_idea_marketplace';
+    $username = 'root';
+    $password = '';
 
     try {
         $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4", $username, $password);
@@ -13,7 +12,7 @@ function getDbConnection() {
         return $pdo;
     } catch (PDOException $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
         exit();
     }
 }
