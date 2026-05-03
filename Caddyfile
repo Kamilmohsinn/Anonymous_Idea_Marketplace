@@ -1,0 +1,17 @@
+:{$PORT:3000} {
+	# Enable gzip compression
+	encode gzip
+
+	# Route all /api/* requests to PHP-FPM
+	handle /api/* {
+		root * /app
+		php_fastcgi unix//run/php/php-fpm.sock
+	}
+
+	# Serve static files from the root directory
+	handle {
+		root * /app
+		try_files {path} {path}/ /index.html
+		file_server
+	}
+}
