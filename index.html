@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymous Idea Marketplace</title>
+    <meta name="description" content="Share your startup ideas securely, get feedback, and find collaborators anonymously.">
+    <link rel="stylesheet" href="styles.css">
+    <script src="js/background.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo">
+                <span style="font-weight: 300;">Vision to Reality</span>
+            </div>
+            <div id="navLinks" class="nav-links">
+                <a href="index.html">Discover</a>
+                <a href="pages/search.html">Search</a>
+                <a href="pages/crowdfunding.html">Crowdfunding</a>
+                <a href="login.html" id="signInBtn" class="btn btn-outline" style="padding: 6px 16px;">Sign In</a>
+                <a href="login.html" class="btn btn-primary" style="padding: 6px 16px;">Post Idea</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero container animate-fade-in">
+        <h1>Share brilliant ideas.<br> <span class="text-gradient">No judgment attached.</span></h1>
+        <p>The safest marketplace for creators and innovators. Post anonymously, get genuine community feedback, and find your next co-founder without revealing your identity.</p>
+        <div class="hero-buttons">
+            <a href="login.html" class="btn btn-primary">Start Posting Anonymously</a>
+            <a href="#trending" class="btn btn-secondary">Explore Ideas</a>
+        </div>
+    </header>
+
+    <main class="container" id="trending">
+        <div class="section-header animate-fade-in delay-1">
+            <h2><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:text-bottom; margin-right:8px; color: var(--text-main);"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>Trending Concepts</h2>
+            <div class="filters">
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <input id="searchInput" class="form-control" style="min-width:190px;" placeholder="Search ideas...">
+                    <select id="sortSelect" class="form-control" style="min-width:130px;">
+                        <option value="trending">Trending</option>
+                        <option value="new">Newest</option>
+                        <option value="top">Top</option>
+                    </select>
+                    <select id="categorySelect" class="form-control" style="min-width:150px;"><option value="">All Categories</option></select>
+                    <button id="applyFiltersBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.9rem;">Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="ideasGrid" class="ideas-grid animate-fade-in delay-2">
+            <article class="idea-card">
+                <div class="card-header">
+                    <span class="category-tag">Loading</span>
+                </div>
+                <h3 class="idea-title">Loading ideas...</h3>
+                <p class="idea-description">Please wait while we fetch ideas from the database.</p>
+            </article>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container" style="text-align: center;">
+            <p style="font-style: italic; margin-bottom: 8px; color: var(--accent-primary);">"Turning anonymous visions into tangible realities."</p>
+            <p>&copy; 2026 VTR Marketplace. All ideas remain anonymous.</p>
+        </div>
+    </footer>
+
+    <script>
+        async function loadCategories() {
+            try {
+                const response = await fetch('api/categories/list.php');
+                const data = await response.json();
+                if (!data.success) {
+                    return;
+                }
+
+                const categorySelect = document.getElementById('categorySelect');
+                data.categories.forEach((cat) => {
+                    const option = document.createElement('option');
+                    option.value = cat.name;
+                    option.textContent = cat.name;
+                    categorySelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+            }
+        }
+
+        async function loadIdeas() {
+            const ideasGrid = document.getElementById('ideasGrid');
+            const searchValue = document.getElementById('searchInput').value.trim();
+            const sortValue = document.getElementById('sortSelect').value;
+            const categoryValue = document.getElementById('categorySelect').value;
+
+            try {
+                const params = new URLSearchParams();
+                params.set('q', searchValue);
+                params.set('sort', sortValue);
+                params.set('category', categoryValue);
+                params.set('status', 'Published');
+                params.set('refresh_trending', '1');
+
+                const response = await fetch(`api/ideas/list.php?${params.toString()}`);
+                const data = await response.json();
+
+                if (!data.success || !Array.isArray(data.ideas)) {
+                    ideasGrid.innerHTML = '<article class="idea-card"><h3 class="idea-title">Could not load ideas</h3><p class="idea-description">Please try again later.</p></article>';
+                    return;
+                }
+
+                if (data.ideas.length === 0) {
+                    ideasGrid.innerHTML = '<article class="idea-card"><h3 class="idea-title">No ideas yet</h3><p class="idea-description">Be the first one to share a startup concept.</p></article>';
+                    return;
+                }
+
+                ideasGrid.innerHTML = data.ideas.map((idea) => {
+                    const tagsHtml = (idea.tags || '').split(',').filter(t => t.trim()).map(tag => `<span class="tag-pill">${tag.trim()}</span>`).join('');
+                    const isTrending = Number(idea.trending_score) > 5;
+                    const trendingBadge = isTrending ? '<span class="trending-badge">Trending</span>' : '';
+                    
+                    return `
+                        <article class="idea-card">
+                            <div class="card-header">
+                                <span class="category-tag">${idea.category}</span>
+                                ${trendingBadge}
+                            </div>
+                            <h3 class="idea-title">${idea.title}</h3>
+                            <div class="tag-container">
+                                ${tagsHtml}
+                                <span class="tag-pill" style="color: var(--accent-blue); border-color: var(--accent-blue);">${idea.stage}</span>
+                            </div>
+                            <p class="idea-description">${idea.problem_statement}</p>
+                            <div class="card-footer">
+                                <div class="creator-info">
+                                    <div class="creator-avatar"></div>
+                                    <span>${idea.pseudonym}</span>
+                                </div>
+                                <div class="stats">
+                                    <span class="stat-item upvotes">▲ ${idea.vote_score}</span>
+                                    <span class="stat-item comments">● ${idea.comments_count || 0}</span>
+                                    <a href="pages/idea-details.html?id=${idea.id}" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.75rem;">View Details</a>
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load ideas:', error);
+                ideasGrid.innerHTML = '<article class="idea-card"><h3 class="idea-title">Error loading ideas</h3><p class="idea-description">Check your API and database connection.</p></article>';
+            }
+        }
+
+        async function initNavbar() {
+            try {
+                const response = await fetch('api/check_auth.php');
+                const data = await response.json();
+                const navLinks = document.getElementById('navLinks');
+
+                if (data.authenticated) {
+                    navLinks.innerHTML = `
+                        <a href="index.html">Discover</a>
+                        <a href="pages/search.html">Search</a>
+                        <a href="pages/crowdfunding.html">Crowdfunding</a>
+                        <a href="pages/notifications.html" id="notifLink">Notifications</a>
+                        <a href="pages/dashboard.html" class="btn btn-primary" style="padding: 6px 16px;">Dashboard</a>
+                    `;
+                    fetchUnreadCount();
+                }
+            } catch (error) {
+                console.error('Navbar init failed:', error);
+            }
+        }
+
+        async function fetchUnreadCount() {
+            try {
+                const response = await fetch('api/notifications/unread_count.php');
+                const data = await response.json();
+                if (data.success && data.unread_count > 0) {
+                    const notifLink = document.getElementById('notifLink');
+                    if (notifLink) {
+                        const badge = document.createElement('span');
+                        badge.className = 'nav-badge';
+                        badge.textContent = data.unread_count;
+                        notifLink.appendChild(badge);
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('applyFiltersBtn').addEventListener('click', loadIdeas);
+        loadCategories();
+        loadIdeas();
+        initNavbar();
+    </script>
+</body>
+</html>

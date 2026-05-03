@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Anonymous Idea Marketplace</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../js/background.js" defer></script>
+</head>
+<body style="display:none;">
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo"><a href="../index.html" style="color: var(--text-main);">Vision to Reality | Admin</a></div>
+            <div class="nav-links">
+                <a href="dashboard.html">My Dashboard</a>
+                <a href="../api/logout.php" class="btn btn-secondary" style="padding: 6px 16px;">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container" style="padding-top:40px; padding-bottom:60px;">
+        <div class="section-header">
+            <h2>Pending Ideas Approval</h2>
+            <p class="text-muted">Review and approve new idea submissions before they go live</p>
+        </div>
+
+        <div id="pendingIdeas" class="dash-list" style="margin-bottom: 60px;">
+            <!-- Pending ideas will be loaded here -->
+        </div>
+
+        <div class="section-header">
+            <h2>Moderation Queue</h2>
+            <p class="text-muted">Review reported ideas and comments</p>
+        </div>
+
+        <div id="reportsList" class="dash-list">
+            <!-- Reports will be loaded here -->
+        </div>
+
+    </main>
+
+    <script>
+        async function checkAuth() {
+            const response = await fetch('../api/check_auth.php');
+            const data = await response.json();
+            if (!data.authenticated || !['admin', 'moderator'].includes(data.role)) {
+                window.location.href = '../login.html';
+                return false;
+            }
+            document.body.style.display = 'block';
+            return true;
+        }
+
+        async function loadReports() {
+            const list = document.getElementById('reportsList');
+            list.innerHTML = '<div class="dash-item"><div class="dash-item-info"><h3>Loading reports...</h3></div></div>';
+            
+            try {
+                const response = await fetch('../api/moderation/list_reports.php');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    if (response.status === 403) {
+                        alert('Access Denied: Admin privileges required.');
+                        window.location.href = 'dashboard.html';
+                        return;
+                    }
+                    list.innerHTML = `<div class="dash-item"><div class="dash-item-info"><h3>Error</h3><p>${data.message}</p></div></div>`;
+                    return;
+                }
+
+                if (data.reports.length === 0) {
+                    list.innerHTML = '<div class="dash-item"><div class="dash-item-info"><h3>No pending reports</h3><p>Platform is clean!</p></div></div>';
+                    return;
+                }
+
+                list.innerHTML = data.reports.map(r => `
+                    <article class="dash-item">
+                        <div class="dash-item-info">
+                            <span class="category-tag" style="background: rgba(255, 69, 58, 0.1); color: #ff453a;">${r.target_type.toUpperCase()} REPORT</span>
+                            <h3>Reason: ${r.reason}</h3>
+                            <p class="text-muted">Target ID: ${r.target_id} | Reported by: ${r.reporter_email}</p>
+                            <div class="dash-item-meta"><span>${new Date(r.created_at).toLocaleString()}</span></div>
+                        </div>
+                        <div class="dash-actions">
+                            <button class="btn btn-outline" onclick="takeAction(${r.id}, 'Dismissed')" style="border-color: #32d74b; color: #32d74b;">Dismiss</button>
+                            <button class="btn btn-primary" onclick="takeAction(${r.id}, 'Actioned')" style="background: #ff453a;">Delete Content</button>
+                        </div>
+                    </article>
+                `).join('');
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function takeAction(reportId, action) {
+            if (!confirm(`Are you sure you want to ${action === 'Dismiss' ? 'dismiss this report' : 'DELETE the reported content'}?`)) return;
+
+            const formData = new FormData();
+            formData.append('report_id', reportId);
+            formData.append('action', action);
+
+            try {
+                const response = await fetch('../api/moderation/take_action.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loadReports();
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function loadPendingIdeas() {
+            const list = document.getElementById('pendingIdeas');
+            list.innerHTML = '<div class="dash-item"><div class="dash-item-info"><h3>Loading pending ideas...</h3></div></div>';
+            
+            try {
+                const response = await fetch('../api/ideas/list.php?status=Pending');
+                const data = await response.json();
+                
+                if (!data.success) {
+                    list.innerHTML = `<div class="dash-item"><div class="dash-item-info"><h3>Error</h3><p>${data.message}</p></div></div>`;
+                    return;
+                }
+
+                if (data.ideas.length === 0) {
+                    list.innerHTML = '<div class="dash-item"><div class="dash-item-info"><h3>No pending ideas</h3><p>Everything has been reviewed.</p></div></div>';
+                    return;
+                }
+
+                list.innerHTML = data.ideas.map(i => `
+                    <article class="dash-item">
+                        <div class="dash-item-info">
+                            <span class="category-tag">${i.category}</span>
+                            <h3>${i.title}</h3>
+                            <p>${i.problem_statement.substring(0, 150)}...</p>
+                            <div class="dash-item-meta">
+                                <span>By: ${i.pseudonym}</span> | 
+                                <span>${new Date(i.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <div class="dash-actions">
+                            <button class="btn btn-outline" onclick="approveIdea(${i.id}, 'reject')" style="border-color: #ff453a; color: #ff453a;">Reject</button>
+                            <button class="btn btn-primary" onclick="approveIdea(${i.id}, 'approve')" style="background: #32d74b;">Approve & Publish</button>
+                        </div>
+                    </article>
+                `).join('');
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function approveIdea(ideaId, action) {
+            if (!confirm(`Are you sure you want to ${action} this idea?`)) return;
+
+            const formData = new FormData();
+            formData.append('id', ideaId);
+            formData.append('action', action);
+
+            try {
+                const response = await fetch('../api/admin/approve_idea.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    loadPendingIdeas();
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        (async function init() {
+            const ok = await checkAuth();
+            if (ok) {
+                loadPendingIdeas();
+                loadReports();
+            }
+        })();
+
+    </script>
+</body>
+</html>

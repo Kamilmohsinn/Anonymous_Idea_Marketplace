@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idea Details - Anonymous Idea Marketplace</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../js/background.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo">
+                <a href="../index.html" style="color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 300;">Vision to Reality</span>
+                </a>
+            </div>
+            <div class="nav-links" id="navLinks">
+                <a href="dashboard.html">Dashboard</a>
+                <a href="notifications.html" id="notifLink">Notifications</a>
+                <a href="../index.html">Discover</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container" style="padding-top: 48px; padding-bottom: 72px;">
+        <article id="ideaCard" class="idea-card" style="max-width: 900px; margin: 0 auto;">
+            <div class="card-header">
+                <span id="ideaCategory" class="category-tag">Loading...</span>
+                <span id="ideaStage" class="text-muted" style="font-size: 0.85rem;"></span>
+            </div>
+            <h1 id="ideaTitle" class="idea-title" style="font-size: 2rem;">Loading idea...</h1>
+
+            <section style="margin: 24px 0;">
+                <h3 style="margin-bottom: 8px;">Problem Statement</h3>
+                <p id="ideaProblem" class="idea-description" style="display:block; -webkit-line-clamp: unset; margin-bottom: 0;">Please wait...</p>
+            </section>
+
+            <section style="margin: 24px 0;">
+                <h3 style="margin-bottom: 8px;">Proposed Solution</h3>
+                <p id="ideaSolution" class="idea-description" style="display:block; -webkit-line-clamp: unset; margin-bottom: 0;">Please wait...</p>
+            </section>
+
+            <section style="margin: 24px 0;">
+                <h3 style="margin-bottom: 8px;">Tags</h3>
+                <p id="ideaTags" class="text-muted">-</p>
+            </section>
+
+            <section style="margin: 24px 0;">
+                <h3 style="margin-bottom: 8px;">Similarity Advisory</h3>
+                <p id="similarityInfo" class="text-muted">Checking similarity...</p>
+                <p id="attachmentInfo" class="text-muted"></p>
+            </section>
+
+            <div class="card-footer">
+                <div class="creator-info">
+                    <div class="creator-avatar"></div>
+                    <span id="ideaAuthor">Anonymous</span>
+                </div>
+                <div class="stats">
+                    <span id="ideaVotes" class="stat-item upvotes">Score: 0</span>
+                    <span id="ideaDate" class="stat-item text-muted"></span>
+                </div>
+            </div>
+
+            <div style="display:flex; gap: 10px; margin-top: 18px; flex-wrap: wrap;">
+                <button id="upvoteBtn" class="btn btn-secondary">Upvote</button>
+                <button id="downvoteBtn" class="btn btn-secondary">Downvote</button>
+                <button id="collabBtn" class="btn btn-primary">Send Collaboration Request</button>
+                <button id="reportIdeaBtn" class="btn btn-outline">Report Idea</button>
+            </div>
+
+            <div id="ideaMessage" style="display:none; margin-top: 12px; padding: 10px; border-radius: var(--radius-sm);"></div>
+
+            <section style="margin-top: 28px; border-top: 1px solid var(--bg-tertiary); padding-top: 18px;">
+                <h3 style="margin-bottom: 12px;">Discussion</h3>
+                <form id="commentForm" style="display:flex; gap: 10px; align-items: flex-start;">
+                    <textarea id="commentContent" class="form-control" placeholder="Write a constructive comment..." style="min-height: 90px;"></textarea>
+                    <button type="submit" class="btn btn-primary">Post</button>
+                </form>
+                <div id="commentsList" style="margin-top: 16px;"></div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 12px;">
+                    <button id="prevCommentsBtn" class="btn btn-secondary" type="button" style="padding:6px 12px; font-size:0.85rem;">Previous</button>
+                    <span id="commentsPageInfo" class="text-muted" style="font-size:0.85rem;"></span>
+                    <button id="nextCommentsBtn" class="btn btn-secondary" type="button" style="padding:6px 12px; font-size:0.85rem;">Next</button>
+                </div>
+            </section>
+        </article>
+    </main>
+
+    <script>
+        let currentIdeaId = null;
+        let commentsPage = 1;
+        let commentsTotalPages = 1;
+
+        function showMessage(text, isError = false) {
+            const box = document.getElementById('ideaMessage');
+            box.textContent = text;
+            box.style.display = 'block';
+            box.style.background = isError ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)';
+            box.style.border = isError ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)';
+            box.style.color = isError ? '#fca5a5' : '#86efac';
+        }
+
+        function getIdeaIdFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('id');
+        }
+
+        async function loadComments() {
+            const commentsList = document.getElementById('commentsList');
+
+            try {
+                const response = await fetch(`../api/comments/list.php?idea_id=${encodeURIComponent(currentIdeaId)}&page=${commentsPage}&per_page=10`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    commentsList.innerHTML = '<p class="text-muted">Could not load comments.</p>';
+                    return;
+                }
+
+                if (data.comments.length === 0) {
+                    commentsList.innerHTML = '<p class="text-muted">No comments yet. Start the discussion.</p>';
+                    document.getElementById('commentsPageInfo').textContent = 'Page 1 of 1';
+                    return;
+                }
+
+                commentsTotalPages = data.pagination ? Number(data.pagination.total_pages || 1) : 1;
+                document.getElementById('commentsPageInfo').textContent = `Page ${commentsPage} of ${commentsTotalPages}`;
+                document.getElementById('prevCommentsBtn').disabled = commentsPage <= 1;
+                document.getElementById('nextCommentsBtn').disabled = commentsPage >= commentsTotalPages;
+
+                commentsList.innerHTML = data.comments.map((comment) => {
+                    const created = new Date(comment.created_at).toLocaleString();
+                    const indent = comment.parent_comment_id ? 24 : 0;
+                    return `
+                        <div class="dash-item" style="margin-bottom: 10px; align-items:flex-start; margin-left:${indent}px;">
+                            <div class="dash-item-info">
+                                <h3 style="font-size: 0.95rem;">${comment.pseudonym}</h3>
+                                <p style="margin: 6px 0 8px 0; color: var(--text-main);">${comment.content}</p>
+                                <div class="dash-item-meta"><span>${created}</span><span>Helpful score: ${comment.helpful_score || 0}</span></div>
+                                <div style="display:flex; gap:6px; margin-top: 8px;">
+                                    <button class="btn btn-secondary react-btn" data-id="${comment.id}" data-reaction="helpful" style="padding:5px 10px; font-size:0.8rem;">Helpful</button>
+                                    <button class="btn btn-outline react-btn" data-id="${comment.id}" data-reaction="unhelpful" style="padding:5px 10px; font-size:0.8rem;">Unhelpful</button>
+                                    <button class="btn btn-outline reply-btn" data-id="${comment.id}" style="padding:5px 10px; font-size:0.8rem;">Reply</button>
+                                    <button class="btn btn-outline report-comment-btn" data-id="${comment.id}" style="padding:5px 10px; font-size:0.8rem;">Report</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load comments:', error);
+                commentsList.innerHTML = '<p class="text-muted">Error loading comments.</p>';
+            }
+        }
+
+        async function castVote(voteType) {
+            const formData = new FormData();
+            formData.append('idea_id', currentIdeaId);
+            formData.append('vote_type', voteType);
+
+            try {
+                const response = await fetch('../api/votes/cast.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    showMessage(data.message || 'Vote failed', true);
+                    return;
+                }
+
+                document.getElementById('ideaVotes').textContent = `Score: ${data.vote_score}`;
+                showMessage('Vote recorded successfully.');
+            } catch (error) {
+                console.error('Vote failed:', error);
+                showMessage('Could not submit vote.', true);
+            }
+        }
+
+        async function sendCollaborationRequest() {
+            if (!currentUserId) {
+                alert('You must be signed in to send a collaboration request.');
+                window.location.href = '../login.html';
+                return;
+            }
+
+            const message = prompt('Enter message for collaboration request:', 'I would like to collaborate on this idea.');
+            if (message === null) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('idea_id', currentIdeaId);
+            formData.append('message', message.trim());
+
+            try {
+                const response = await fetch('../api/collaboration/send.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    showMessage(data.message || 'Request failed', true);
+                    return;
+                }
+
+                showMessage('Collaboration request sent.');
+            } catch (error) {
+                console.error('Request failed:', error);
+                showMessage('Could not send collaboration request.', true);
+            }
+        }
+
+        async function fetchUnreadCount() {
+            try {
+                const response = await fetch('../api/notifications/unread_count.php');
+                const data = await response.json();
+                if (data.success && data.unread_count > 0) {
+                    const notifLink = document.getElementById('notifLink');
+                    if (notifLink) {
+                        const badge = document.createElement('span');
+                        badge.className = 'nav-badge';
+                        badge.textContent = data.unread_count;
+                        notifLink.appendChild(badge);
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function postComment(e, parentCommentId = 0) {
+            e.preventDefault();
+
+            const content = document.getElementById('commentContent').value.trim();
+            if (!content) {
+                showMessage('Comment cannot be empty.', true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('idea_id', currentIdeaId);
+            formData.append('content', content);
+            if (parentCommentId > 0) {
+                formData.append('parent_comment_id', parentCommentId);
+            }
+
+            try {
+                const response = await fetch('../api/comments/create.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (!data.success) {
+                    showMessage(data.message || 'Comment failed', true);
+                    return;
+                }
+
+                document.getElementById('commentContent').value = '';
+                showMessage('Comment posted.');
+                commentsPage = 1;
+                await loadComments();
+            } catch (error) {
+                console.error('Comment failed:', error);
+                showMessage('Could not post comment.', true);
+            }
+        }
+
+        async function reactComment(commentId, reaction) {
+            const formData = new FormData();
+            formData.append('comment_id', commentId);
+            formData.append('reaction', reaction);
+
+            try {
+                const response = await fetch('../api/comments/react.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    showMessage(data.message || 'Reaction failed', true);
+                    return;
+                }
+                await loadComments();
+            } catch (error) {
+                console.error('Reaction failed:', error);
+                showMessage('Could not react to comment.', true);
+            }
+        }
+
+        async function reportTarget(targetType, targetId) {
+            const reason = prompt('Enter reason (spam / inappropriate / plagiarism / other):', 'spam');
+            if (reason === null) {
+                return;
+            }
+            const details = prompt('Additional details (optional):', '');
+
+            const formData = new FormData();
+            formData.append('target_type', targetType);
+            formData.append('target_id', String(targetId));
+            formData.append('reason', reason.trim() || 'other');
+            formData.append('details', details ? details.trim() : '');
+
+            try {
+                const response = await fetch('../api/reports/create.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    showMessage(data.message || 'Report failed', true);
+                    return;
+                }
+                showMessage('Report submitted successfully.');
+            } catch (error) {
+                console.error('Report failed:', error);
+                showMessage('Could not submit report.', true);
+            }
+        }
+
+        async function loadIdea() {
+            const id = getIdeaIdFromQuery();
+            if (!id) {
+                alert('Missing idea id.');
+                window.location.href = '../index.html';
+                return;
+            }
+
+            currentIdeaId = id;
+
+            try {
+                const response = await fetch(`../api/ideas/get.php?id=${encodeURIComponent(id)}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    alert(data.message || 'Idea not found');
+                    window.location.href = '../index.html';
+                    return;
+                }
+
+                const idea = data.idea;
+                currentUserId = data.current_user_id;
+                fetchUnreadCount();
+                
+                document.title = `${idea.title} - Idea Details`;
+                document.getElementById('ideaTitle').textContent = idea.title;
+                document.getElementById('ideaCategory').textContent = idea.category;
+                document.getElementById('ideaStage').textContent = `Stage: ${idea.stage}`;
+                document.getElementById('ideaProblem').textContent = idea.problem_statement;
+                document.getElementById('ideaSolution').textContent = idea.proposed_solution;
+                document.getElementById('ideaTags').textContent = idea.tags || 'No tags';
+                document.getElementById('ideaAuthor').textContent = idea.pseudonym;
+                document.getElementById('ideaVotes').textContent = `Score: ${idea.vote_score}`;
+                document.getElementById('ideaDate').textContent = new Date(idea.created_at).toLocaleString();
+
+                const similarityText = idea.similarity_score > 0
+                    ? `Similarity score: ${idea.similarity_score}%${idea.similar_idea_id ? ` (related idea ID: ${idea.similar_idea_id})` : ''}`
+                    : 'No strong similarity detected.';
+                document.getElementById('similarityInfo').textContent = similarityText;
+
+                if (idea.attachment_path) {
+                    document.getElementById('attachmentInfo').innerHTML = `Attachment: <a href="../${idea.attachment_path}" target="_blank">Open file</a>`;
+                } else {
+                    document.getElementById('attachmentInfo').textContent = 'No attachment uploaded.';
+                }
+
+                await loadComments();
+            } catch (error) {
+                console.error('Failed to load idea:', error);
+                alert('Could not load idea details.');
+                window.location.href = '../index.html';
+            }
+        }
+
+        document.getElementById('upvoteBtn').addEventListener('click', function() {
+            castVote(1);
+        });
+
+        document.getElementById('downvoteBtn').addEventListener('click', function() {
+            castVote(-1);
+        });
+
+        document.getElementById('collabBtn').addEventListener('click', sendCollaborationRequest);
+        document.getElementById('commentForm').addEventListener('submit', postComment);
+        document.getElementById('reportIdeaBtn').addEventListener('click', function() {
+            reportTarget('idea', currentIdeaId);
+        });
+
+        document.getElementById('prevCommentsBtn').addEventListener('click', function() {
+            if (commentsPage > 1) {
+                commentsPage -= 1;
+                loadComments();
+            }
+        });
+
+        document.getElementById('nextCommentsBtn').addEventListener('click', function() {
+            if (commentsPage < commentsTotalPages) {
+                commentsPage += 1;
+                loadComments();
+            }
+        });
+
+        document.getElementById('commentsList').addEventListener('click', function(e) {
+            const reactBtn = e.target.closest('.react-btn');
+            const replyBtn = e.target.closest('.reply-btn');
+            const reportCommentBtn = e.target.closest('.report-comment-btn');
+
+            if (reactBtn) {
+                reactComment(reactBtn.dataset.id, reactBtn.dataset.reaction);
+            }
+
+            if (replyBtn) {
+                const text = prompt('Reply to this comment:');
+                if (text && text.trim()) {
+                    document.getElementById('commentContent').value = text.trim();
+                    const fakeEvent = { preventDefault: () => {} };
+                    postComment(fakeEvent, Number(replyBtn.dataset.id));
+                }
+            }
+
+            if (reportCommentBtn) {
+                reportTarget('comment', reportCommentBtn.dataset.id);
+            }
+        });
+
+        loadIdea();
+    </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crowdfunding - Vision to Reality</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="bg-visuals">
+        <div class="wave"></div>
+        <div class="wave"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo">
+                <a href="../index.html" style="color: inherit; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 300;">Vision to Reality</span>
+                </a>
+            </div>
+            <div id="navLinks" class="nav-links">
+                <a href="../index.html">Discover</a>
+                <a href="search.html">Search</a>
+                <a href="crowdfunding.html" class="active">Crowdfunding</a>
+                <a href="../login.html" class="btn btn-primary" style="padding: 6px 16px;">Sign In</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero container animate-fade-in">
+        <h1>Fuel the <span class="text-gradient">Next Big Thing.</span></h1>
+        <p>Support anonymous innovators and help turn groundbreaking concepts into reality. Transparent, secure, and impactful.</p>
+        <div class="hero-buttons">
+            <a href="create-campaign.html" class="btn btn-primary">Start a Campaign</a>
+            <a href="#campaigns" class="btn btn-secondary">Explore Projects</a>
+        </div>
+    </header>
+
+    <main class="container" id="campaigns">
+        <div class="section-header animate-fade-in delay-1">
+            <h2>Active Campaigns</h2>
+            <div class="filters">
+                <select id="statusFilter" class="form-control" style="min-width:150px;">
+                    <option value="Active">Active</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Completed">Completed</option>
+                    <option value="all">All</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="campaignsGrid" class="campaign-grid animate-fade-in delay-2">
+            <!-- Campaigns will be loaded here -->
+            <div class="campaign-card">
+                <div class="campaign-content">
+                    <h3 class="campaign-title">Loading campaigns...</h3>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 VTR Marketplace. All ideas remain anonymous.</p>
+        </div>
+    </footer>
+
+    <script>
+        async function loadCampaigns() {
+            const grid = document.getElementById('campaignsGrid');
+            const status = document.getElementById('statusFilter').value;
+
+            try {
+                const response = await fetch(`../api/crowdfunding/list.php?status=${status}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    grid.innerHTML = `<p class="text-muted">Error: ${data.message}</p>`;
+                    return;
+                }
+
+                if (data.campaigns.length === 0) {
+                    grid.innerHTML = `<p class="text-muted">No campaigns found for this status.</p>`;
+                    return;
+                }
+
+                grid.innerHTML = data.campaigns.map(c => {
+                    const progress = Math.min(100, (c.current_amount / c.goal_amount) * 100);
+                    const imageStyle = c.image_path ? `style="background-image: url('../${c.image_path}'); background-size: cover; background-position: center;"` : '';
+                    return `
+                        <article class="campaign-card">
+                            <div class="campaign-image" ${imageStyle}></div>
+                            <div class="campaign-content">
+                                <h3 class="campaign-title">${c.title}</h3>
+                                <p class="campaign-desc">${c.description}</p>
+                                
+                                <div class="progress-container">
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-bar-fill" style="width: ${progress}%"></div>
+                                    </div>
+                                    <div class="progress-stats">
+                                        <div>
+                                            <span class="stat-value">$${parseFloat(c.current_amount).toLocaleString()}</span>
+                                            <span class="stat-label">Raised</span>
+                                        </div>
+                                        <div style="text-align: right;">
+                                            <span class="stat-value">${Math.round(progress)}%</span>
+                                            <span class="stat-label">of $${parseFloat(c.goal_amount).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <a href="campaign-details.html?id=${c.id}" class="btn btn-secondary" style="margin-top: 24px; width: 100%;">View Details</a>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error(error);
+                grid.innerHTML = `<p class="text-muted">Failed to load campaigns.</p>`;
+            }
+        }
+
+        async function initNavbar() {
+            try {
+                const response = await fetch('../api/check_auth.php');
+                const data = await response.json();
+                const navLinks = document.getElementById('navLinks');
+
+                if (data && data.authenticated) {
+                    navLinks.innerHTML = `
+                        <a href="../index.html">Discover</a>
+                        <a href="search.html">Search</a>
+                        <a href="crowdfunding.html" class="active">Crowdfunding</a>
+                        <a href="dashboard.html" class="btn btn-primary" style="padding: 6px 16px;">Dashboard</a>
+                    `;
+                }
+            } catch (e) {}
+        }
+
+        document.getElementById('statusFilter').addEventListener('change', loadCampaigns);
+        loadCampaigns();
+        initNavbar();
+    </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idea Discovery - Anonymous Idea Marketplace</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../js/background.js" defer></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo"><a href="../index.html" style="color: var(--text-main);">Vision to Reality</a></div>
+            <div class="nav-links">
+                <a href="dashboard.html">Dashboard</a>
+                <a href="notifications.html">Notifications</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container" style="padding-top: 40px; padding-bottom: 60px;">
+        <div class="section-header">
+            <h2>Advanced Idea Discovery</h2>
+        </div>
+
+        <form id="searchForm" class="auth-container" style="max-width: 100%; margin: 0 0 20px 0;">
+            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px;">
+                <input id="q" class="form-control" placeholder="Search keyword, title, tags...">
+                <select id="category" class="form-control"><option value="">All categories</option></select>
+                <select id="stage" class="form-control">
+                    <option value="">All stages</option>
+                    <option value="Concept">Concept</option>
+                    <option value="Prototype">Prototype</option>
+                    <option value="Beta">Beta</option>
+                    <option value="Startup">Startup</option>
+                </select>
+                <select id="sort" class="form-control">
+                    <option value="new">Newest</option>
+                    <option value="top">Top Rated</option>
+                    <option value="trending">Trending</option>
+                </select>
+            </div>
+            <div style="margin-top: 12px; display:flex; justify-content:flex-end; gap: 10px;">
+                <button type="button" id="clearBtn" class="btn btn-secondary">Clear</button>
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+        </form>
+
+        <div id="results" class="ideas-grid"></div>
+    </main>
+
+    <script>
+        async function loadCategories() {
+            try {
+                const response = await fetch('../api/categories/list.php');
+                const data = await response.json();
+                if (!data.success) return;
+                const category = document.getElementById('category');
+                data.categories.forEach((item) => {
+                    const option = document.createElement('option');
+                    option.value = item.name;
+                    option.textContent = item.name;
+                    category.appendChild(option);
+                });
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function searchIdeas() {
+            const q = document.getElementById('q').value.trim();
+            const category = document.getElementById('category').value;
+            const stage = document.getElementById('stage').value;
+            const sort = document.getElementById('sort').value;
+
+            const params = new URLSearchParams();
+            params.set('q', q);
+            params.set('category', category);
+            params.set('stage', stage);
+            params.set('sort', sort);
+            params.set('status', 'Published');
+            params.set('refresh_trending', '1');
+
+            const results = document.getElementById('results');
+            results.innerHTML = '<article class="idea-card"><h3 class="idea-title">Loading...</h3></article>';
+
+            try {
+                const response = await fetch(`../api/ideas/list.php?${params.toString()}`);
+                const data = await response.json();
+                if (!data.success || data.ideas.length === 0) {
+                    results.innerHTML = '<article class="idea-card"><h3 class="idea-title">No matching ideas</h3></article>';
+                    return;
+                }
+
+                results.innerHTML = data.ideas.map((idea) => {
+                    const tagsHtml = (idea.tags || '').split(',').filter(t => t.trim()).map(tag => `<span class="tag-pill">${tag.trim()}</span>`).join('');
+                    const isTrending = Number(idea.trending_score) > 5;
+                    const trendingBadge = isTrending ? '<span class="trending-badge">Trending</span>' : '';
+                    
+                    return `
+                        <article class="idea-card">
+                            <div class="card-header">
+                                <span class="category-tag">${idea.category}</span>
+                                ${trendingBadge}
+                            </div>
+                            <h3 class="idea-title">${idea.title}</h3>
+                            <div class="tag-container">
+                                ${tagsHtml}
+                                <span class="tag-pill" style="color: var(--accent-blue); border-color: var(--accent-blue);">${idea.stage}</span>
+                            </div>
+                            <p class="idea-description">${idea.problem_statement}</p>
+                            <div class="card-footer">
+                                <div class="creator-info">
+                                    <div class="creator-avatar"></div>
+                                    <span>${idea.pseudonym}</span>
+                                </div>
+                                <div class="stats">
+                                    <span class="stat-item upvotes">▲ ${idea.vote_score}</span>
+                                    <span class="stat-item comments">● ${idea.comments_count || 0}</span>
+                                    <a href="idea-details.html?id=${idea.id}" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.75rem;">View Details</a>
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error(error);
+                results.innerHTML = '<article class="idea-card"><h3 class="idea-title">Error loading search results</h3></article>';
+            }
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            searchIdeas();
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', function() {
+            document.getElementById('searchForm').reset();
+            searchIdeas();
+        });
+
+        loadCategories();
+        searchIdeas();
+    </script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile - Anonymous Idea Marketplace</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo"><a href="../index.html" style="color: var(--text-main);">Vision to Reality</a></div>
+            <div class="nav-links"><a href="dashboard.html">Dashboard</a><a href="search.html">Search</a></div>
+        </div>
+    </nav>
+
+    <main class="container" style="padding-top:40px; padding-bottom:60px;">
+        <div class="section-header"><h2>User Profile & Leaderboard</h2></div>
+
+        <div class="auth-container" style="max-width: 100%; margin:0 0 24px 0;">
+            <h3 style="margin-bottom: 10px;">My Reputation</h3>
+            <div id="myProfile" class="text-muted">Loading...</div>
+            <div id="myLogs" style="margin-top: 12px;"></div>
+
+            <h3 style="margin: 20px 0 10px 0;">Profile Settings</h3>
+            <form id="settingsForm">
+                <div class="form-group">
+                    <label class="form-label" for="bio">Bio</label>
+                    <textarea id="bio" class="form-control" placeholder="Write a short profile bio..."></textarea>
+                </div>
+                <div class="form-group" style="display:flex; gap:20px; align-items:center; flex-wrap:wrap;">
+                    <label style="display:flex; gap:8px; align-items:center;">
+                        <input type="checkbox" id="emailNotifications"> Email Notifications
+                    </label>
+                    <label style="display:flex; gap:8px; align-items:center;">
+                        <input type="checkbox" id="publicProfile"> Public Profile Enabled
+                    </label>
+                </div>
+                <button class="btn btn-primary" type="submit">Save Settings</button>
+            </form>
+        </div>
+
+        <h3 style="margin-bottom:12px;">Top Contributors</h3>
+        <div id="leaderboard" class="dash-list"></div>
+    </main>
+
+    <script>
+        async function checkAuth() {
+            const response = await fetch('../api/check_auth.php');
+            const data = await response.json();
+            if (!data.authenticated) {
+                window.location.href = '../login.html';
+                return false;
+            }
+            return true;
+        }
+
+        async function loadMyProfile() {
+            const [repResponse, profileResponse] = await Promise.all([
+                fetch('../api/reputation/me.php'),
+                fetch('../api/profile/get.php')
+            ]);
+
+            const repData = await repResponse.json();
+            const profileData = await profileResponse.json();
+
+            if (repData.success) {
+                document.getElementById('myProfile').textContent = `Points: ${repData.profile.reputation_points} | Badge: ${repData.profile.badge}`;
+            }
+
+            if (profileData.success) {
+                document.getElementById('bio').value = profileData.profile.bio || '';
+                document.getElementById('emailNotifications').checked = Number(profileData.settings.email_notifications_enabled) === 1;
+                document.getElementById('publicProfile').checked = Number(profileData.settings.public_profile_enabled) === 1;
+            }
+
+            const logs = repData.logs || [];
+            document.getElementById('myLogs').innerHTML = logs.length === 0
+                ? '<p class="text-muted">No activity logs yet.</p>'
+                : logs.map((log) => `<div class="dash-item-meta"><span>${log.reason}</span><span>${log.points > 0 ? '+' : ''}${log.points} pts</span><span>${new Date(log.created_at).toLocaleString()}</span></div>`).join('');
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+
+            const formData = new FormData();
+            formData.append('bio', document.getElementById('bio').value.trim());
+            formData.append('email_notifications_enabled', document.getElementById('emailNotifications').checked ? '1' : '0');
+            formData.append('public_profile_enabled', document.getElementById('publicProfile').checked ? '1' : '0');
+
+            const response = await fetch('../api/profile/update.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            alert(data.message || 'Settings updated.');
+        }
+
+        async function loadLeaderboard() {
+            const response = await fetch('../api/reputation/leaderboard.php');
+            const data = await response.json();
+            const board = document.getElementById('leaderboard');
+            if (!data.success || data.leaders.length === 0) {
+                board.innerHTML = '<div class="dash-item"><div class="dash-item-info"><h3>No leaderboard data</h3></div></div>';
+                return;
+            }
+
+            board.innerHTML = data.leaders.map((user, index) => `
+                <article class="dash-item">
+                    <div class="dash-item-info">
+                        <h3>#${index + 1} ${user.email}</h3>
+                        <div class="dash-item-meta"><span>Points: ${user.reputation_points}</span><span>Badge: ${user.badge}</span></div>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        (async function init() {
+            const ok = await checkAuth();
+            if (!ok) return;
+            await loadMyProfile();
+            await loadLeaderboard();
+        })();
+
+        document.getElementById('settingsForm').addEventListener('submit', saveSettings);
+    </script>
+</body>
+</html>

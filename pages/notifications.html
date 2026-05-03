@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - Anonymous Idea Marketplace</title>
+    <link rel="stylesheet" href="../styles.css">
+    <script src="../js/background.js" defer></script>
+</head>
+<body style="display:none;">
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo"><a href="../index.html" style="color: var(--text-main);">Vision to Reality</a></div>
+            <div class="nav-links">
+                <a href="dashboard.html">Dashboard</a>
+                <a href="search.html">Search</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container" style="padding-top:40px; padding-bottom:60px;">
+        <div class="section-header"><h2>Notifications</h2><button id="markAllBtn" class="btn btn-secondary">Mark all read</button></div>
+        <div id="notificationList" class="dash-list"></div>
+    </main>
+
+    <script>
+        async function checkAuth() {
+            const response = await fetch('../api/check_auth.php');
+            const data = await response.json();
+            if (!data.authenticated) {
+                window.location.href = '../login.html';
+                return false;
+            }
+            document.body.style.display = 'block';
+            return true;
+        }
+
+        async function loadNotifications() {
+            const list = document.getElementById('notificationList');
+            list.innerHTML = '<div class="dash-item"><div class="dash-item-info"><h3>Loading...</h3></div></div>';
+            const response = await fetch('../api/notifications/list.php');
+            const data = await response.json();
+            if (!data.success || data.notifications.length === 0) {
+                list.innerHTML = '<div class="dash-item"><div class="dash-item-info"><h3>No notifications</h3></div></div>';
+                return;
+            }
+
+            list.innerHTML = data.notifications.map((n) => `
+                <article class="dash-item" style="border-left: 4px solid ${n.is_read ? '#3a3a3c' : '#32d74b'};">
+                    <div class="dash-item-info">
+                        <h3>${n.title}</h3>
+                        <p class="text-muted" style="margin: 6px 0;">${n.message}</p>
+                        <div class="dash-item-meta"><span>${new Date(n.created_at).toLocaleString()}</span><span>${n.is_read ? 'Read' : 'Unread'}</span></div>
+                    </div>
+                    <div class="dash-actions">
+                        <button class="btn btn-secondary mark-btn" data-id="${n.id}" style="padding:6px 12px; font-size:0.85rem;">Mark Read</button>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        async function markRead(id = 0) {
+            const formData = new FormData();
+            if (id > 0) formData.append('id', id);
+            await fetch('../api/notifications/mark_read.php', { method: 'POST', body: formData });
+            loadNotifications();
+        }
+
+        document.getElementById('markAllBtn').addEventListener('click', () => markRead(0));
+        document.getElementById('notificationList').addEventListener('click', (e) => {
+            const btn = e.target.closest('.mark-btn');
+            if (btn) markRead(Number(btn.dataset.id));
+        });
+
+        (async function init() {
+            const ok = await checkAuth();
+            if (ok) loadNotifications();
+        })();
+    </script>
+</body>
+</html>

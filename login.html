@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Anonymous Idea Marketplace</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        .auth-status {
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.9rem;
+            margin-top: 16px;
+            display: none;
+        }
+        .status-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        .status-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo">
+                <a href="index.html" style="color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 300;">Vision to Reality</span>
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Discover</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="auth-container animate-fade-in">
+            <div class="auth-header">
+                <h1 id="authTitle" style="font-size: 2rem; margin-bottom: 8px;">Welcome Back</h1>
+                <p class="text-muted">Enter your details to access your secure profile.</p>
+            </div>
+            
+            <div id="statusBox" class="auth-status"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input type="email" id="email" class="form-control" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group" style="position: relative;">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+                    <a href="#" id="forgotBtn" style="position: absolute; right: 0; top: 0; font-size: 0.85rem; color: var(--accent-blue);">Forgot?</a>
+                </div>
+
+                <div id="resetFields" style="display: none; border: 1px solid var(--bg-tertiary); padding: 16px; border-radius: var(--radius-sm); margin-bottom: 24px; background: rgba(255,255,255,0.02);">
+                    <p style="font-size: 0.85rem; margin-bottom: 12px; color: var(--text-muted);">Enter the token and your new password below.</p>
+                    <div class="form-group">
+                        <label class="form-label">Reset Token</label>
+                        <input type="text" id="resetToken" class="form-control" placeholder="Enter token">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">New Password</label>
+                        <input type="password" id="newPassword" class="form-control" placeholder="At least 8 characters">
+                    </div>
+                    <button type="button" id="confirmResetBtn" class="btn btn-secondary" style="width: 100%;">Update Password</button>
+                </div>
+
+                <div id="roleField" class="form-group" style="display: none;">
+                    <label class="form-label" for="role">Account Type</label>
+                    <select id="role" class="form-control">
+                        <option value="user">Innovator / Collaborator</option>
+                        <option value="investor">Investor</option>
+                    </select>
+                </div>
+                
+                <button type="submit" id="loginBtn" class="btn btn-primary" style="width: 100%; margin-top: 16px;">Sign In Securely</button>
+            </form>
+            
+            <div style="margin-top: 24px; text-align: center; border-top: 1px solid var(--bg-tertiary); padding-top: 24px;">
+                <p class="text-muted" style="font-size: 0.9rem;">
+                    <span id="switchText">Don't have an account?</span> <br>
+                    <a href="#" id="switchModeBtn" style="font-weight: 600; display: inline-block; margin-top: 8px;">Create Anonymous Profile</a>
+                </p>
+                <div style="margin-top: 16px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.2);">
+                    <small style="color: var(--accent-success); display: flex; justify-content: center; align-items: center; gap: 6px;">
+                        <span>🔒</span> Your real identity is never exposed to other users.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 VTR Marketplace.</p>
+        </div>
+    </footer>
+
+    <script>
+        let isRegisterMode = false;
+        const statusBox = document.getElementById('statusBox');
+
+        function showStatus(message, isSuccess = false) {
+            statusBox.textContent = message;
+            statusBox.className = 'auth-status ' + (isSuccess ? 'status-success' : 'status-error');
+            statusBox.style.display = 'block';
+            statusBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function setMode(registerMode) {
+            isRegisterMode = registerMode;
+            document.getElementById('authTitle').textContent = registerMode ? 'Create Account' : 'Welcome Back';
+            document.getElementById('loginBtn').textContent = registerMode ? 'Create Profile' : 'Sign In Securely';
+            document.getElementById('switchText').textContent = registerMode ? 'Already have an account?' : "Don't have an account?";
+            document.getElementById('switchModeBtn').textContent = registerMode ? 'Back to Sign In' : 'Create Anonymous Profile';
+            document.getElementById('roleField').style.display = registerMode ? 'block' : 'none';
+            document.getElementById('forgotBtn').style.display = registerMode ? 'none' : 'inline';
+            document.getElementById('resetFields').style.display = 'none';
+            statusBox.style.display = 'none';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const role = document.getElementById('role').value;
+
+            statusBox.style.display = 'none';
+            loginBtn.disabled = true;
+            loginBtn.textContent = isRegisterMode ? 'Creating...' : 'Signing In...';
+
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('password', password);
+                formData.append('role', role);
+
+                const response = await fetch(isRegisterMode ? 'api/register.php' : 'api/login.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus('Success! Redirecting...', true);
+                    setTimeout(() => {
+                        window.location.href = data.role === 'admin' || data.role === 'moderator' ? 'pages/admin.html' : 'pages/dashboard.html';
+                    }, 1000);
+                } else {
+                    showStatus(data.message || 'Authentication failed.');
+                }
+            } catch (error) {
+                console.error('Auth error:', error);
+                showStatus('A connection error occurred. Please check your internet.');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = isRegisterMode ? 'Create Profile' : 'Sign In Securely';
+            }
+        });
+
+        document.getElementById('switchModeBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            setMode(!isRegisterMode);
+        });
+
+        document.getElementById('forgotBtn').addEventListener('click', async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            if (!email) {
+                showStatus('Please enter your email address above first.');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                const response = await fetch('api/forgot_password.php', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus(data.message + (data.reset_token ? ' [DEMO TOKEN: ' + data.reset_token + ']' : ''), true);
+                    document.getElementById('resetFields').style.display = 'block';
+                    if (data.reset_token) {
+                        document.getElementById('resetToken').value = data.reset_token;
+                    }
+                } else {
+                    showStatus(data.message || 'Request failed.');
+                }
+            } catch (error) {
+                showStatus('Failed to connect to the reset service.');
+            }
+        });
+
+        document.getElementById('confirmResetBtn').addEventListener('click', async function() {
+            const token = document.getElementById('resetToken').value.trim();
+            const newPassword = document.getElementById('newPassword').value;
+
+            if (!token || newPassword.length < 8) {
+                showStatus('Token and new password (min 8 chars) are required.');
+                return;
+            }
+
+            try {
+                const resetFormData = new FormData();
+                resetFormData.append('token', token);
+                resetFormData.append('new_password', newPassword);
+
+                const response = await fetch('api/reset_password.php', { method: 'POST', body: resetFormData });
+                const data = await response.json();
+
+                if (data.success) {
+                    showStatus(data.message, true);
+                    document.getElementById('resetFields').style.display = 'none';
+                    document.getElementById('password').value = '';
+                } else {
+                    showStatus(data.message || 'Reset failed.');
+                }
+            } catch (error) {
+                showStatus('Connection error during reset.');
+            }
+        });
+    </script>
+</body>
+</html>

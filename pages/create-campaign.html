@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Campaign - Vision to Reality</title>
+    <link rel="stylesheet" href="../styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="bg-visuals">
+        <div class="wave"></div>
+    </div>
+
+    <nav class="navbar">
+        <div class="container nav-content">
+            <div class="logo">
+                <a href="../index.html" style="color: inherit; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 300;">Vision to Reality</span>
+                </a>
+            </div>
+            <div id="navLinks" class="nav-links">
+                <a href="../index.html">Discover</a>
+                <a href="crowdfunding.html">Crowdfunding</a>
+                <a href="dashboard.html" class="btn btn-primary" style="padding: 6px 16px;">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container" style="max-width: 800px; margin-top: 60px; margin-bottom: 100px;">
+        <div class="auth-header">
+            <h1>Launch Your <span class="text-gradient">Fundraising.</span></h1>
+            <p>Tell the community about your vision and set your goal.</p>
+        </div>
+
+        <form id="campaignForm" class="auth-container" style="max-width: 100%; margin-top: 0;">
+            <div class="form-group">
+                <label class="form-label">Link to an Idea (Optional)</label>
+                <select id="ideaSelect" class="form-control">
+                    <option value="">Standalone Project</option>
+                    <!-- User ideas will be loaded here -->
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Campaign Title</label>
+                <input type="text" id="title" class="form-control" placeholder="e.g. Revolutionizing Urban Farming" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea id="description" class="form-control" placeholder="Describe your vision, why it matters, and how the funds will be used." required></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label class="form-label">Funding Goal ($)</label>
+                    <input type="number" id="goal_amount" class="form-control" placeholder="5000" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">End Date</label>
+                    <input type="date" id="end_date" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="section-header" style="margin-top: 40px; margin-bottom: 20px;">
+                <h3 style="font-size: 1.2rem;">Reward Tiers</h3>
+                <button type="button" id="addRewardBtn" class="btn btn-outline" style="padding: 4px 12px; font-size: 0.8rem;">+ Add Tier</button>
+            </div>
+
+            <div id="rewardsContainer" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px;">
+                <!-- Reward tiers will be added here -->
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 16px;">Create Campaign</button>
+        </form>
+    </main>
+
+    <script>
+        async function loadUserIdeas() {
+            try {
+                const response = await fetch('../api/ideas/list.php?my_ideas=1');
+                const data = await response.json();
+                if (data.success) {
+                    const select = document.getElementById('ideaSelect');
+                    data.ideas.forEach(idea => {
+                        const opt = document.createElement('option');
+                        opt.value = idea.id;
+                        opt.textContent = idea.title;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function addRewardTier() {
+            const container = document.getElementById('rewardsContainer');
+            const index = container.children.length;
+            const rewardDiv = document.createElement('div');
+            rewardDiv.className = 'reward-entry';
+            rewardDiv.style = 'background: var(--bg-tertiary); padding: 16px; border-radius: 8px; position: relative;';
+            rewardDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 120px; gap: 12px; margin-bottom: 12px;">
+                    <input type="text" class="form-control r-title" placeholder="Tier Title (e.g. Early Bird)" required>
+                    <input type="number" class="form-control r-amount" placeholder="Min $" min="1" required>
+                </div>
+                <textarea class="form-control r-desc" placeholder="What does the donor get?" style="min-height: 80px;"></textarea>
+                <button type="button" class="remove-reward" style="position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; background: #ff3b30; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px;">&times;</button>
+            `;
+            
+            rewardDiv.querySelector('.remove-reward').onclick = () => rewardDiv.remove();
+            container.appendChild(rewardDiv);
+        }
+
+        document.getElementById('addRewardBtn').onclick = addRewardTier;
+
+        document.getElementById('campaignForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const rewards = [];
+            document.querySelectorAll('.reward-entry').forEach(entry => {
+                rewards.push({
+                    title: entry.querySelector('.r-title').value,
+                    min_amount: entry.querySelector('.r-amount').value,
+                    description: entry.querySelector('.r-desc').value
+                });
+            });
+
+            const payload = {
+                idea_id: document.getElementById('ideaSelect').value || null,
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                goal_amount: document.getElementById('goal_amount').value,
+                end_date: document.getElementById('end_date').value,
+                rewards: rewards
+            };
+
+            try {
+                const response = await fetch('../api/crowdfunding/create.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('Campaign created! It is currently pending admin approval.');
+                    window.location.href = 'crowdfunding.html';
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Failed to submit form.');
+            }
+        };
+
+        loadUserIdeas();
+        // Add one initial tier
+        addRewardTier();
+    </script>
+</body>
+</html>
