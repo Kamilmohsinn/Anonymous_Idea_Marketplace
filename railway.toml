@@ -1,2 +1,2 @@
 [deploy]
-preDeployCommand = "bash scripts/import-db.sh"
+startCommand = "bash scripts/import-db.sh && caddy run --config Caddyfile --adapter caddyfile"
